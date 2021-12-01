@@ -13,6 +13,8 @@ import { getType } from "mime/lite";
 
 import type { BrowserWindow } from "electron";
 
+import { remote } from "electron";
+
 const DEFAULT_SETTINGS: PluginSettings = {};
 
 export default class ImageWindow extends Plugin {
@@ -54,6 +56,8 @@ export default class ImageWindow extends Plugin {
                 modal.open();
             }
         });
+
+        console.log("Image Window loaded.");
     }
     async loadFile(file: TFile) {
         if (!(this.app.vault.adapter instanceof FileSystemAdapter)) return;
@@ -65,8 +69,6 @@ export default class ImageWindow extends Plugin {
         const encoded = "data:text/html;charset=utf-8," + encodeURI(html);
 
         if (!this.window) {
-            const remote = require("electron").remote;
-
             this.window = new remote.BrowserWindow({
                 webPreferences: {
                     webSecurity: false
@@ -85,6 +87,7 @@ export default class ImageWindow extends Plugin {
         if (this.window) {
             this.window.close();
         }
+        console.log("Image Window unloaded.");
     }
 
     async loadSettings() {
