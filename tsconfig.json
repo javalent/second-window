@@ -1,15 +1,15 @@
 {
     "compilerOptions": {
         "baseUrl": ".",
-        "inlineSources": true,
         "module": "ESNext",
-        "target": "es6",
+        "target": "esnext",
         "allowJs": true,
         "noImplicitAny": true,
         "moduleResolution": "node",
         "importHelpers": true,
         "types": ["node"],
-        "lib": ["dom", "esnext", "scripthost", "es2015"]
+        "lib": ["dom", "esnext", "scripthost", "es2015"],
+        "allowSyntheticDefaultImports": true
     },
     "include": ["src/**/*"]
 }

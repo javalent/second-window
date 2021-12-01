@@ -37,20 +37,6 @@ module.exports = {
                 ]
             },
             {
-                test: /\.worker\.ts?$/,
-                loader: "worker-loader",
-                options: {
-                    inline: "no-fallback",
-                    worker: {
-                        type: "Worker",
-                        options: {
-                            name: "Fantasy Calendar Watcher",
-                            esModule: false
-                        }
-                    }
-                }
-            },
-            {
                 test: /\.css?$/,
                 use: [
                     MiniCssExtractPlugin.loader,
