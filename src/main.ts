@@ -62,7 +62,7 @@ export default class ImageWindow extends Plugin {
     async loadFile(file: TFile) {
         if (!(this.app.vault.adapter instanceof FileSystemAdapter)) return;
 
-        const html = `<div style="height: 100%; width: 100%;"><img src="${this.app.vault.adapter.getFullPath(
+        const html = `<div style="height: 100%; width: 100%;"><img src="file://${this.app.vault.adapter.getFullPath(
             file.path
         )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`;
 
