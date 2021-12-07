@@ -17,6 +17,17 @@ import { remote } from "electron";
 
 const DEFAULT_SETTINGS: PluginSettings = {};
 
+declare global {
+    interface Window {
+        DOMPurify: {
+            sanitize(
+                html: string,
+                options: Record<string, any>
+            ): DocumentFragment;
+        };
+    }
+}
+
 export default class ImageWindow extends Plugin {
     settings: PluginSettings;
     window: BrowserWindow;
@@ -62,21 +73,26 @@ export default class ImageWindow extends Plugin {
     async loadFile(file: TFile) {
         if (!(this.app.vault.adapter instanceof FileSystemAdapter)) return;
 
-        const html = `<div style="height: 100%; width: 100%;"><img src="file://${this.app.vault.adapter.getFullPath(
-            file.path
-        )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`;
+        const fragment = this.sanitizeHTMLToDom(
+            `<div style="height: 100%; width: 100%;"><img src="${this.app.vault.adapter.getResourcePath(
+                file.path
+            )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`
+        );
 
-        const encoded = "data:text/html;charset=utf-8," + encodeURI(html);
+        const html = createDiv();
+        html.appendChild(fragment);
+
+        const encoded =
+            "data:text/html;charset=utf-8," + encodeURI(html.innerHTML);
+
+        html.detach();
 
         if (!this.window) {
-            this.window = new remote.BrowserWindow({
-                webPreferences: {
-                    webSecurity: false
-                }
-            });
+            this.window = new remote.BrowserWindow();
 
             this.window.on("close", () => (this.window = null));
         }
+
         await this.window.loadURL(encoded);
         this.window.moveTop();
     }
@@ -100,6 +116,21 @@ export default class ImageWindow extends Plugin {
 
     async saveSettings() {
         await this.saveData(this.settings);
+    }
+    sanitizeHTMLToDom(html: string): DocumentFragment {
+        return window.DOMPurify.sanitize(html, {
+            ALLOW_UNKNOWN_PROTOCOLS: true,
+            RETURN_DOM_FRAGMENT: true,
+            RETURN_DOM_IMPORT: true,
+            FORBID_TAGS: ["style"]
+            /* ADD_TAGS: ["iframe"],
+            ADD_ATTR: [
+                "frameborder",
+                "allowfullscreen",
+                "allow",
+                "aria-label-position"
+            ] */
+        });
     }
 }
 
