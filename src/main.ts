@@ -179,7 +179,9 @@ export default class ImageWindow extends Plugin {
             const content = await this.app.vault.cachedRead(file);
 
             const doc = createEl("html");
-            doc.append(this.buildHead());
+            const head = this.buildHead();
+            head.createEl("title", { text: file.name });
+            doc.append(head);
 
             const note = doc
                 .createEl("body", { cls: this.mode })
@@ -205,6 +207,8 @@ export default class ImageWindow extends Plugin {
 
                 this.window.on("close", () => (this.window = null));
             }
+
+            this.window.setTitle(file.name);
 
             await this.window.loadURL(
                 this.app.vault.adapter.getResourcePath(
