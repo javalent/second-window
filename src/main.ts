@@ -6,6 +6,7 @@ import {
     FuzzySuggestModal,
     MarkdownRenderer,
     Plugin,
+    Plugin_2,
     TFile
 } from "obsidian";
 import { PluginSettings } from "./@types";
@@ -29,6 +30,29 @@ declare global {
     }
 }
 
+declare module "obsidian" {
+    interface App {
+        customCss: {
+            enabledSnippets: string[];
+            getSnippetsFolder(): string;
+            getThemeFolder(): string;
+            theme: string;
+        };
+        plugins: {
+            plugins: Record<string, Plugin>;
+            getPluginFolder(): string;
+        };
+    }
+    interface Vault {
+        config: {
+            theme?: "obsidian" | "moonstone";
+        };
+    }
+    interface Plugin {
+        _loaded: boolean;
+    }
+}
+
 export default class ImageWindow extends Plugin {
     settings: PluginSettings;
     window: BrowserWindow;
@@ -37,8 +61,6 @@ export default class ImageWindow extends Plugin {
     }
     async onload() {
         await this.loadSettings();
-
-        this.buildHead();
 
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu, file) => {
@@ -89,27 +111,19 @@ export default class ImageWindow extends Plugin {
             attr: { rel: "stylesheet" }
         });
 
-        //@ts-ignore
         for (const snippet of this.app.customCss.enabledSnippets) {
             head.createEl("link", {
                 href: this.app.vault.adapter.getResourcePath(
-                    //@ts-ignore
                     `${this.app.customCss.getSnippetsFolder()}/${snippet}.css`
                 ),
                 type: "text/css",
                 attr: { rel: "stylesheet" }
             });
         }
-        for (const [plugin, value] of Object.keys(
-            //@ts-ignore
-            this.app.plugins.plugins ?? {}
-        )?.filter(
-            //@ts-ignore
-            (p) => p[1]?._loaded
-        )) {
+        for (const plugin of Object.keys(this.app.plugins.plugins)) {
+            if (!this.app.plugins.plugins[plugin]._loaded) continue;
             head.createEl("link", {
                 href: this.app.vault.adapter.getResourcePath(
-                    //@ts-ignore
                     `${this.app.plugins.getPluginFolder()}/${plugin}/styles.css`
                 ),
                 type: "text/css",
@@ -136,12 +150,12 @@ export default class ImageWindow extends Plugin {
     }
     get theme() {
         return this.app.vault.adapter.getResourcePath(
-            //@ts-ignore
-            `${app.customCss.getThemeFolder()}/${this.app.customCss.theme}.css`
+            `${this.app.customCss.getThemeFolder()}/${
+                this.app.customCss.theme
+            }.css`
         );
     }
     get mode() {
-        //@ts-ignore
         return (this.app.vault.config?.theme ?? "obsidian") == "obsidian"
             ? "theme-dark"
             : "theme-light";
@@ -180,12 +194,9 @@ export default class ImageWindow extends Plugin {
                 .createDiv("markdown-preview-view")
                 .createDiv("markdown-preview-sizer markdown preview-section");
 
-            console.log("🚀 ~ file: main.ts ~ line 158 ~ content", content);
             await MarkdownRenderer.renderMarkdown(content, note, "", null);
-            console.log("🚀 ~ file: main.ts ~ line 159 ~ note", note);
 
             await this.app.vault.adapter.write(
-                //@ts-ignore
                 `${this.app.plugins.getPluginFolder()}/image-window/file.html`,
                 doc.outerHTML
             );
@@ -197,7 +208,6 @@ export default class ImageWindow extends Plugin {
 
             await this.window.loadURL(
                 this.app.vault.adapter.getResourcePath(
-                    //@ts-ignore
                     `${this.app.plugins.getPluginFolder()}/image-window/file.html`
                 )
             );
@@ -209,17 +219,6 @@ export default class ImageWindow extends Plugin {
         } else {
             return;
         }
-    }
-    sendStyleSheets() {
-        /* if (!this.window) return;
-        const styles = document.querySelectorAll("style");
-        for (const style of Array.from(styles ?? [])) {
-            const data = encodeURI(style.outerHTML);
-            console.log("🚀 ~ file: main.ts ~ line 131 ~ data", data);
-            this.window.webContents.executeJavaScript(
-                `document.head.innerHTML += ${data}`
-            );
-        } */
     }
 
     onunload() {
