@@ -4,6 +4,7 @@ import {
     App,
     FileSystemAdapter,
     FuzzySuggestModal,
+    MarkdownRenderer,
     Plugin,
     TFile
 } from "obsidian";
@@ -31,15 +32,20 @@ declare global {
 export default class ImageWindow extends Plugin {
     settings: PluginSettings;
     window: BrowserWindow;
+    get stylesheets() {
+        return document.head.innerHTML;
+    }
     async onload() {
         await this.loadSettings();
 
+        this.buildHead();
+
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu, file) => {
-                if (!(file instanceof TFile)) return;
-                if (!/image/.test(getType(file.extension))) return;
                 if (!(this.app.vault.adapter instanceof FileSystemAdapter))
                     return;
+                if (!(file instanceof TFile)) return;
+                /* if (!/image/.test(getType(file.extension))) return; */
 
                 menu.addItem((item) => {
                     item.setTitle("Open in new window")
@@ -70,9 +76,49 @@ export default class ImageWindow extends Plugin {
 
         console.log("Image Window loaded.");
     }
-    async loadFile(file: TFile) {
-        if (!(this.app.vault.adapter instanceof FileSystemAdapter)) return;
+    buildHead() {
+        const head = createEl("head");
+        head.createEl("link", {
+            href: "app://obsidian.md/app.css",
+            type: "text/css",
+            attr: { rel: "stylesheet" }
+        });
+        head.createEl("link", {
+            href: this.theme,
+            type: "text/css",
+            attr: { rel: "stylesheet" }
+        });
 
+        //@ts-ignore
+        for (const snippet of this.app.customCss.enabledSnippets) {
+            head.createEl("link", {
+                href: this.app.vault.adapter.getResourcePath(
+                    //@ts-ignore
+                    `${this.app.customCss.getSnippetsFolder()}/${snippet}.css`
+                ),
+                type: "text/css",
+                attr: { rel: "stylesheet" }
+            });
+        }
+        for (const [plugin, value] of Object.keys(
+            //@ts-ignore
+            this.app.plugins.plugins ?? {}
+        )?.filter(
+            //@ts-ignore
+            (p) => p[1]?._loaded
+        )) {
+            head.createEl("link", {
+                href: this.app.vault.adapter.getResourcePath(
+                    //@ts-ignore
+                    `${this.app.plugins.getPluginFolder()}/${plugin}/styles.css`
+                ),
+                type: "text/css",
+                attr: { rel: "stylesheet" }
+            });
+        }
+        return head;
+    }
+    async loadImage(file: TFile) {
         const fragment = this.sanitizeHTMLToDom(
             `<div style="height: 100%; width: 100%;"><img src="${this.app.vault.adapter.getResourcePath(
                 file.path
@@ -86,18 +132,95 @@ export default class ImageWindow extends Plugin {
             "data:text/html;charset=utf-8," + encodeURI(html.innerHTML);
 
         html.detach();
-
-        if (!this.window) {
-            this.window = new remote.BrowserWindow();
-
-            this.window.on("close", () => (this.window = null));
-        }
-
-        await this.window.loadURL(encoded);
-        this.window.moveTop();
+        return encoded;
     }
+    get theme() {
+        return this.app.vault.adapter.getResourcePath(
+            //@ts-ignore
+            `${app.customCss.getThemeFolder()}/${this.app.customCss.theme}.css`
+        );
+    }
+    get mode() {
+        //@ts-ignore
+        return (this.app.vault.config?.theme ?? "obsidian") == "obsidian"
+            ? "theme-dark"
+            : "theme-light";
+    }
+    async loadFile(file: TFile) {
+        if (!(this.app.vault.adapter instanceof FileSystemAdapter)) return;
 
-    openImageModal() {}
+        let encoded: string;
+        if (/image/.test(getType(file.extension))) {
+            encoded = await this.loadImage(file);
+            if (!this.window) {
+                this.window = new remote.BrowserWindow();
+
+                this.window.on("close", () => (this.window = null));
+            }
+
+            await this.window.loadURL(encoded);
+
+            this.window.moveTop();
+        } else if (file.extension == "md") {
+            const content = await this.app.vault.cachedRead(file);
+
+            const doc = createEl("html");
+            doc.append(this.buildHead());
+
+            const note = doc
+                .createEl("body", { cls: this.mode })
+                .createDiv("app-container")
+                .createDiv("horizontal-main-container")
+                .createDiv("workspace")
+                .createDiv("workspace-split mod-vertical mod-root")
+                .createDiv("workspace-leaf mod-active")
+                .createDiv("workspace-leaf-content")
+                .createDiv("view-content")
+                .createDiv("markdown-reading-view")
+                .createDiv("markdown-preview-view")
+                .createDiv("markdown-preview-sizer markdown preview-section");
+
+            console.log("🚀 ~ file: main.ts ~ line 158 ~ content", content);
+            await MarkdownRenderer.renderMarkdown(content, note, "", null);
+            console.log("🚀 ~ file: main.ts ~ line 159 ~ note", note);
+
+            await this.app.vault.adapter.write(
+                //@ts-ignore
+                `${this.app.plugins.getPluginFolder()}/image-window/file.html`,
+                doc.outerHTML
+            );
+            if (!this.window) {
+                this.window = new remote.BrowserWindow();
+
+                this.window.on("close", () => (this.window = null));
+            }
+
+            await this.window.loadURL(
+                this.app.vault.adapter.getResourcePath(
+                    //@ts-ignore
+                    `${this.app.plugins.getPluginFolder()}/image-window/file.html`
+                )
+            );
+
+            this.window.moveTop();
+            /*  encoded =
+                "data:text/html;charset=utf-8," + encodeURI(doc.innerHTML);
+            doc.detach(); */
+        } else {
+            return;
+        }
+    }
+    sendStyleSheets() {
+        /* if (!this.window) return;
+        const styles = document.querySelectorAll("style");
+        for (const style of Array.from(styles ?? [])) {
+            const data = encodeURI(style.outerHTML);
+            console.log("🚀 ~ file: main.ts ~ line 131 ~ data", data);
+            this.window.webContents.executeJavaScript(
+                `document.head.innerHTML += ${data}`
+            );
+        } */
+    }
 
     onunload() {
         if (this.window) {
