@@ -7,6 +7,7 @@ import {
     FuzzySuggestModal,
     MarkdownRenderer,
     Plugin,
+    sanitizeHTMLToDom,
     TFile
 } from "obsidian";
 import { PluginSettings } from "./@types";
@@ -270,19 +271,7 @@ export default class ImageWindow extends Plugin {
         await this.saveData(this.settings);
     }
     sanitizeHTMLToDom(html: string): DocumentFragment {
-        return window.DOMPurify.sanitize(html, {
-            ALLOW_UNKNOWN_PROTOCOLS: true,
-            RETURN_DOM_FRAGMENT: true,
-            RETURN_DOM_IMPORT: true,
-            FORBID_TAGS: ["style"]
-            /* ADD_TAGS: ["iframe"],
-            ADD_ATTR: [
-                "frameborder",
-                "allowfullscreen",
-                "allow",
-                "aria-label-position"
-            ] */
-        });
+        return sanitizeHTMLToDom(html);
     }
 }
 
