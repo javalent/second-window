@@ -31,7 +31,7 @@
         "css-loader": "^5.2.7",
         "dotenv": "^16.0.0",
         "electron": "^13.5.2",
-        "esbuild": "^0.14.20",
+        "esbuild": "^0.14.3",
         "mime": "^3.0.0",
         "mini-css-extract-plugin": "^2.3.0",
         "obsidian": "^0.13.21",
