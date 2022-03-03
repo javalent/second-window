@@ -1,14 +1,21 @@
 # Image Window
 
-This plugin allows you to open an image file in your vault in a new Obsidian window.
+This plugin allows you to open a note or image file in your vault in a new Obsidian window.
 
-Images can be opened in this way by right-clicking on them and selecting "Open in new window", or using the "Open image in new window" command.
+Notes and images can be opened in this way by right-clicking on them and selecting "Open in new window", or using the "Open image in new window" command.
 
 # Installation
 
 ## From within Obsidian
 
-I recommend installing this plugin via [Obsidian BRAT](https://github.com/TfTHacker/obsidian42-brat).
+From Obsidian v0.9.8, you can activate this plugin within Obsidian by doing the following:
+
+-   Open Settings > Third-party plugin
+-   Make sure Safe mode is **off**
+-   Click Browse community plugins
+-   Search for this plugin
+-   Click Install
+-   Once installed, close the community plugins window and activate the newly installed plugin
 
 ## From GitHub
 
