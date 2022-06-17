@@ -30,7 +30,7 @@
         "copy-webpack-plugin": "^9.0.1",
         "css-loader": "^5.2.7",
         "dotenv": "^16.0.0",
-        "electron": "^13.6.6",
+        "electron": "^15.5.5",
         "esbuild": "^0.14.3",
         "mime": "^3.0.0",
         "mini-css-extract-plugin": "^2.3.0",
