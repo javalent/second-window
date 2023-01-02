@@ -24,7 +24,7 @@
         "@types/image-to-base64": "^2.1.0",
         "@types/mime": "^2.0.3",
         "@types/node": "^14.17.34",
-        "babel-loader": "^8.2.2",
+        "babel-loader": "^8.3.0",
         "base64-arraybuffer": "^1.0.1",
         "builtin-modules": "^3.2.0",
         "copy-webpack-plugin": "^9.0.1",
