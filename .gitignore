@@ -11,6 +11,7 @@ main.js
 dist
 styles.css
 !src/styles.css
+/main.css
 
 # obsidian
 data.json
