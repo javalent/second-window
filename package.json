@@ -34,7 +34,7 @@
         "esbuild": "^0.14.3",
         "mime": "^3.0.0",
         "mini-css-extract-plugin": "^2.3.0",
-        "obsidian": "^0.13.21",
+        "obsidian": "^1.1.1",
         "random-word-slugs": "^0.1.6",
         "standard-version": "^9.3.2",
         "svelte-preprocess": "^4.9.8",
