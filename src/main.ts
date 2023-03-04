@@ -152,7 +152,12 @@ class NamedWindow {
                 this.openFile = null;
                 this.window = null;
             });
-            this.window.on("move", debounce(this.onMoved.bind(this), 500, true));
+
+            const positionHandler = debounce(this.onMoved.bind(this), 500, true)
+            this.window.on("move", positionHandler);
+
+            // resize is fired when the window is restored from maximized, and we need to know
+            this.window.on("resize", positionHandler);
         }
 
         this.window.setTitle(file.name);
@@ -173,7 +178,7 @@ class NamedWindow {
         const size = this.window.getSize();
         const hostname = os.hostname();
         if (!this.parent.settings.windows) this.parent.settings.windows = {};
-        if (!this.parent.settings.windows[this.name]) this.parent.settings.windows[this.name] = { name: this.name, hosts: {} };
+        if (!this.parent.settings.windows[this.name]) this.parent.settings.windows[this.name] = { hosts: {} };
         this.parent.settings.windows[this.name].hosts[hostname] = { 
             x: position[0], 
             y: position[1], 
@@ -305,11 +310,10 @@ class ImageWindowSettingTab extends PluginSettingTab {
                         text.inputEl.removeClass("is-invalid");
                         const record = this.parent.settings.windows[state.name];
                         if (record !== undefined) {
-                            record.name = value;
                             this.parent.settings.windows[value] = record;
                             delete this.parent.settings.windows[state.name];
                         } else {
-                            this.parent.settings.windows[value] = { name: value, hosts: {} };
+                            this.parent.settings.windows[value] = { hosts: {} };
                         }
                         state.name = value;
                         await this.parent.saveSettings();
@@ -341,7 +345,6 @@ class ImageWindowSettingTab extends PluginSettingTab {
                         name = `NEW${i++}`;
                     }
                     this.parent.settings.windows[name] = {
-                        name: name,
                         hosts: {}
                     };
                     await this.parent.saveSettings();
@@ -402,14 +405,13 @@ export default class ImageWindow extends Plugin {
                         });
                 });
                 if (this.settings.windows === undefined) return;
-                for (const name of Object.keys(this.settings.windows)) {
+                for (const [name, record] of Object.entries(this.settings.windows)) {
                     if (name === DEFAULT_WINDOW_NAME) continue;
-                    const id = this.settings.windows[name].id;
                     menu.addItem((item) => {
                         item.setTitle(`Open in window '${name}'`)
                             .setIcon("open-elsewhere-glyph")
                             .onClick(async () => {
-                                const namedWindow = this.windows.get(id);
+                                const namedWindow = this.windows.get(record.id);
                                 if (namedWindow !== undefined) {
                                     namedWindow.loadFile(file);
                                 }
@@ -452,9 +454,9 @@ export default class ImageWindow extends Plugin {
         if (this.settings.windows === undefined) {
             return;
         }
-        for (const window of Object.values(this.settings.windows)) {
-            window.id = uniqueId++;
-            this.windows.set(window.id, new NamedWindow(this, window.name));
+        for (const [name, record] of Object.entries(this.settings.windows)) {
+            record.id = uniqueId++;
+            this.windows.set(record.id, new NamedWindow(this, name));
         }
     }
 
@@ -482,17 +484,16 @@ export default class ImageWindow extends Plugin {
                 if (existing !== undefined) {
                     // matched a window
                     existing.stale = false;
-                    existing.rename(configured.name);
+                    existing.rename(key);
                 } else {
                     // added a window
-                    this.windows.set(configured.id, new NamedWindow(this, configured.name));
+                    this.windows.set(configured.id, new NamedWindow(this, key));
                 }
             }
         }
 
         // cull
-        for (const id of this.windows.keys()) {
-            const window = this.windows.get(id);
+        for (const [id, window] of this.windows.entries()) {
             if (window.stale) {
                 window.onunload();
                 this.windows.delete(id);
