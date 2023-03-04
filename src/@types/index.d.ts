@@ -3,7 +3,7 @@ export interface PluginSettings {
     /**
      * indexed by configured window name, plus the default window at "DEFAULT"
      */ 
-    windows?: Record<string, WindowSettings>;
+    windows: Record<string, WindowSettings>;
 }
 
 export interface WindowSettings {

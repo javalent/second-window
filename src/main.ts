@@ -23,7 +23,8 @@ import { remote } from "electron";
 import * as os from "os";
 
 const DEFAULT_SETTINGS: PluginSettings = {
-    saveWindowLocations: true
+    saveWindowLocations: true,
+    windows: {}
 };
 
 declare global {
@@ -142,7 +143,7 @@ class NamedWindow {
         if (!this.window) {
             this.window = new remote.BrowserWindow();
             this.window.menuBarVisible = false;
-            const state: WindowState | undefined = this.parent.settings.windows?.[this.name]?.hosts?.[os.hostname()];
+            const state: WindowState | undefined = this.parent.settings.windows[this.name]?.hosts?.[os.hostname()];
             if (state) {
                 this.window.setBounds(state);
                 this.window.setFullScreen(state.fullscreen);
@@ -177,7 +178,6 @@ class NamedWindow {
         const position = this.window.getPosition();
         const size = this.window.getSize();
         const hostname = os.hostname();
-        if (!this.parent.settings.windows) this.parent.settings.windows = {};
         if (!this.parent.settings.windows[this.name]) this.parent.settings.windows[this.name] = { hosts: {} };
         this.parent.settings.windows[this.name].hosts[hostname] = { 
             x: position[0], 
@@ -281,7 +281,7 @@ class ImageWindowSettingTab extends PluginSettingTab {
                 .setValue(this.parent.settings.saveWindowLocations)
                 .onChange(async (value) => { 
                     this.parent.settings.saveWindowLocations = value; 
-                    if (this.parent.settings.windows !== undefined && !value) {
+                    if (!value) {
                         for (const window of Object.values(this.parent.settings.windows)) {
                             // flush all saved locations
                             window.hosts = {};
@@ -302,7 +302,7 @@ class ImageWindowSettingTab extends PluginSettingTab {
                     .onChange(async (value) => { 
                         if (value === state.name) return;
                         if (value === DEFAULT_WINDOW_NAME || this.parent.settings.windows[value] !== undefined) {
-                            // collision can't be allowed, XXX how do we validate red?
+                            // collision can't be allowed, TODO how do we validate red?
                             text.inputEl.addClass("is-invalid");
                             state.collision = true;
                             return;
@@ -404,7 +404,6 @@ export default class ImageWindow extends Plugin {
                             this.defaultWindow.loadFile(file);
                         });
                 });
-                if (this.settings.windows === undefined) return;
                 for (const [name, record] of Object.entries(this.settings.windows)) {
                     if (name === DEFAULT_WINDOW_NAME) continue;
                     menu.addItem((item) => {
@@ -451,9 +450,6 @@ export default class ImageWindow extends Plugin {
             DEFAULT_SETTINGS,
             await this.loadData()
         );
-        if (this.settings.windows === undefined) {
-            return;
-        }
         for (const [name, record] of Object.entries(this.settings.windows)) {
             record.id = uniqueId++;
             this.windows.set(record.id, new NamedWindow(this, name));
@@ -477,18 +473,16 @@ export default class ImageWindow extends Plugin {
         }
 
         // match up configuration to what we have running
-        if (this.settings.windows !== undefined) {
-            for (const key of Object.keys(this.settings.windows)) {
-                const configured = this.settings.windows[key];
-                const existing = this.windows.get(configured.id);
-                if (existing !== undefined) {
-                    // matched a window
-                    existing.stale = false;
-                    existing.rename(key);
-                } else {
-                    // added a window
-                    this.windows.set(configured.id, new NamedWindow(this, key));
-                }
+        for (const key of Object.keys(this.settings.windows)) {
+            const configured = this.settings.windows[key];
+            const existing = this.windows.get(configured.id);
+            if (existing !== undefined) {
+                // matched a window
+                existing.stale = false;
+                existing.rename(key);
+            } else {
+                // added a window
+                this.windows.set(configured.id, new NamedWindow(this, key));
             }
         }
 
