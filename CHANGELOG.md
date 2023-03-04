@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.0.6](https://github.com/valentine195/obsidian-image-window/compare/1.0.5...1.0.6) (2023-03-04)
+
+
+### Bug Fixes
+
+* improves settings styling ([bc5c8e1](https://github.com/valentine195/obsidian-image-window/commit/bc5c8e1282cc1845a36d5e6c039af3bd35e3e030))
+
 ### [1.0.5](https://github.com/valentine195/obsidian-image-window/compare/1.0.4...1.0.5) (2022-03-21)
 
 
