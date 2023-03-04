@@ -404,11 +404,12 @@ export default class ImageWindow extends Plugin {
                 if (this.settings.windows === undefined) return;
                 for (const name of Object.keys(this.settings.windows)) {
                     if (name === DEFAULT_WINDOW_NAME) continue;
+                    const id = this.settings.windows[name].id;
                     menu.addItem((item) => {
                         item.setTitle(`Open in window '${name}'`)
                             .setIcon("open-elsewhere-glyph")
                             .onClick(async () => {
-                                const namedWindow = this.windows.get(this.settings.windows[name].id);
+                                const namedWindow = this.windows.get(id);
                                 if (namedWindow !== undefined) {
                                     namedWindow.loadFile(file);
                                 }
