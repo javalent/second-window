@@ -7,7 +7,6 @@ export interface PluginSettings {
 }
 
 export interface WindowSettings {
-    name: string;
     /**
      * not serialized
      */
