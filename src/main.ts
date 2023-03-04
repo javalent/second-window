@@ -11,11 +11,13 @@ import {
     sanitizeHTMLToDom,
     Setting,
     TAbstractFile,
+    TextComponent,
     TFile
 } from "obsidian";
 import { PluginSettings, WindowState } from "./@types";
 
 import { getType } from "mime/lite";
+import { generateSlug } from "random-word-slugs"
 
 import type { BrowserWindow } from "electron";
 
@@ -264,92 +266,120 @@ class NamedWindow {
 const DEFAULT_WINDOW_NAME = "DEFAULT";
 
 class ImageWindowSettingTab extends PluginSettingTab {
-    constructor( private plugin: Plugin, private parent: Parent) {
+    constructor(private plugin: Plugin, private parent: Parent) {
         super(parent.app, plugin);
     }
 
     display() {
-		const { containerEl } = this;
+        const { containerEl } = this;
 
-		containerEl.empty();
-		containerEl.createEl('h2', { text: 'Settings for Second Window Plugin' });
+        containerEl.empty();
+        containerEl.addClass("second-window-settings")
+        containerEl.createEl("h2", {
+            text: "Settings for Second Window Plugin"
+        });
 
-		new Setting(containerEl)
-            .setName('Save Window Locations')
-            .setDesc('If true, window locations are saved in the plugin settings. Each computer with a different hostname has its own copy of these saved locations, so that window layouts can differ.')
-            .addToggle(toggle => toggle
-                .setValue(this.parent.settings.saveWindowLocations)
-                .onChange(async (value) => { 
-                    this.parent.settings.saveWindowLocations = value; 
-                    if (!value) {
-                        for (const window of Object.values(this.parent.settings.windows)) {
-                            // flush all saved locations
-                            window.hosts = {};
+        new Setting(containerEl)
+            .setName("Save Window Locations")
+            .setDesc(
+                "If true, window locations are saved in the plugin settings. Each computer with a different hostname has its own copy of these saved locations, so that window layouts can differ."
+            )
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.parent.settings.saveWindowLocations)
+                    .onChange(async (value) => {
+                        this.parent.settings.saveWindowLocations = value;
+                        if (!value) {
+                            for (const window of Object.values(
+                                this.parent.settings.windows
+                            )) {
+                                // flush all saved locations
+                                window.hosts = {};
+                            }
                         }
-                    }
-                    await this.parent.saveSettings(); 
-                }));
+                        await this.parent.saveSettings();
+                    })
+            );
 
+        this.buildWindows(
+            this.containerEl.createDiv()
+        );
+
+        
+        
+    }
+    buildWindows(el: HTMLElement) {
+        const additionalContainer = el.createDiv("additional-container");
+        new Setting(additionalContainer)
+            .setName("Add New Named Window")
+            .setDesc("Name windows allow you to specify specific windows to open files in.")
+            .addButton((button) =>
+                button
+                    .setIcon("plus")
+                    .setTooltip("Add a new window")
+                    .onClick(async () => {
+                        let name = generateSlug(2);
+                        while (
+                            this.parent.settings.windows.hasOwnProperty(name)
+                        ) {
+                            name = generateSlug(2);
+                        }
+                        this.parent.settings.windows[name] = {
+                            hosts: {}
+                        };
+                        await this.parent.saveSettings();
+                        this.display();
+                    })
+            );
+        const additional = additionalContainer.createDiv("additional")
         for (const initialName of Object.keys(this.parent.settings.windows)) {
             if (initialName === DEFAULT_WINDOW_NAME) continue;
             const state = { collision: false, name: initialName };
-            const setting = new Setting(containerEl)
-                .setName("Name")
-                .setDesc('Name of the additional window')
-                .addText(text => {
-                    text
-                    .setValue(initialName)
-                    .onChange(async (value) => { 
-                        if (value === state.name) return;
-                        if (value === DEFAULT_WINDOW_NAME || this.parent.settings.windows[value] !== undefined) {
-                            // collision can't be allowed, TODO how do we validate red?
-                            text.inputEl.addClass("is-invalid");
-                            state.collision = true;
-                            return;
-                        }
-                        text.inputEl.removeClass("is-invalid");
-                        const record = this.parent.settings.windows[state.name];
-                        if (record !== undefined) {
-                            this.parent.settings.windows[value] = record;
+            const setting = new Setting(additional)
+                .addExtraButton((button) =>
+                    button
+                        .setIcon("trash")
+                        .setTooltip("Delete this window")
+                        .onClick(async () => {
                             delete this.parent.settings.windows[state.name];
-                        } else {
-                            this.parent.settings.windows[value] = { hosts: {} };
-                        }
-                        state.name = value;
-                        await this.parent.saveSettings();
-                    });
-                    text.inputEl.on("focusout", "input", () => {
-                        if (state.collision) {
-                            state.collision = false;
-                            this.display();
-                        }
-                    });
-                })
-                .addButton(button => button
-                    .setIcon("trash")
-                    .setTooltip("Delete this window")
-                    .onClick(async () => {
-                        delete this.parent.settings.windows[state.name];
-                        containerEl.removeChild(setting.settingEl);
-                        await this.parent.saveSettings();
-                    }));
-        }
-        new Setting(containerEl)
-            .addButton(button => button
-                .setIcon("plus")
-                .setTooltip("Add a new window")
-                .onClick(async () => {
-                    let name = "NEW";
-                    let i = 2;
-                    while (this.parent.settings.windows.hasOwnProperty(name)) {
-                        name = `NEW${i++}`;
+                            additional.removeChild(setting.settingEl);
+                            await this.parent.saveSettings();
+                        })
+                );
+            const text = new TextComponent(setting.nameEl)
+                .setValue(initialName)
+                .onChange(async (value) => {
+                    if (value === state.name) return;
+                    if (
+                        value === DEFAULT_WINDOW_NAME ||
+                        this.parent.settings.windows[value] !== undefined
+                    ) {
+                        // collision can't be allowed, TODO how do we validate red?
+                        text.inputEl.addClass("is-invalid");
+                        state.collision = true;
+                        return;
                     }
-                    this.parent.settings.windows[name] = {
-                        hosts: {}
-                    };
+                    text.inputEl.removeClass("is-invalid");
+                    const record = this.parent.settings.windows[state.name];
+                    if (record !== undefined) {
+                        this.parent.settings.windows[value] = record;
+                        delete this.parent.settings.windows[state.name];
+                    } else {
+                        this.parent.settings.windows[value] = { hosts: {} };
+                    }
+                    state.name = value;
                     await this.parent.saveSettings();
+                });
+            text.inputEl.on("focusin", "input", () => {
+                text.inputEl.select();
+            })
+            text.inputEl.on("focusout", "input", () => {
+                if (state.collision) {
+                    state.collision = false;
                     this.display();
-                }));
+                }
+            });
+        }
     }
 };
 
