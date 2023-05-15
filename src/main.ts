@@ -6,6 +6,7 @@ import {
     FileSystemAdapter,
     FuzzySuggestModal,
     MarkdownRenderer,
+    Menu,
     Plugin,
     PluginSettingTab,
     sanitizeHTMLToDom,
@@ -17,7 +18,7 @@ import {
 import { PluginSettings, WindowState } from "./@types";
 
 import { getType } from "mime/lite";
-import { generateSlug } from "random-word-slugs"
+import { generateSlug } from "random-word-slugs";
 
 import type { BrowserWindow } from "electron";
 
@@ -181,11 +182,11 @@ class NamedWindow {
         const size = this.window.getSize();
         const hostname = os.hostname();
         if (!this.parent.settings.windows[this.name]) this.parent.settings.windows[this.name] = { hosts: {} };
-        this.parent.settings.windows[this.name].hosts[hostname] = { 
-            x: position[0], 
-            y: position[1], 
-            width: size[0], 
-            height: size[1], 
+        this.parent.settings.windows[this.name].hosts[hostname] = {
+            x: position[0],
+            y: position[1],
+            width: size[0],
+            height: size[1],
             fullscreen: this.window.isFullScreen(),
             maximized: this.window.isMaximized()
         };
@@ -305,8 +306,8 @@ class ImageWindowSettingTab extends PluginSettingTab {
             this.containerEl.createDiv()
         );
 
-        
-        
+
+
     }
     buildWindows(el: HTMLElement) {
         const additionalContainer = el.createDiv("additional-container");
@@ -408,7 +409,7 @@ export default class ImageWindow extends Plugin {
     async onload() {
         await this.loadSettings();
         this.app.workspace.onLayoutReady(this.manifold<void>(this.defaultWindow.buildHead));
-        this.addSettingTab(new ImageWindowSettingTab(this, this));        
+        this.addSettingTab(new ImageWindowSettingTab(this, this));
         this.registerEvent(
             this.app.workspace.on("css-change", this.manifold<void>(this.defaultWindow.buildHead))
         )
@@ -449,6 +450,42 @@ export default class ImageWindow extends Plugin {
                 }
             })
         );
+
+        this.registerDomEvent(document, "contextmenu", (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (target.localName !== "img") return;
+
+            const vaultName = this.app.vault.getName().replace(" ", "%20")
+            const imgPath = (target as HTMLImageElement).currentSrc;
+            const cleanPath = imgPath.split(`${vaultName}/`)[1].split("?")[0];
+            const file = this.app.vault.getAbstractFileByPath(cleanPath);
+
+            if (!(file instanceof TFile)) return;
+            const menu = new Menu();
+            menu.addItem((item) => {
+                item.setTitle("Open in new window")
+                    .setIcon("open-elsewhere-glyph")
+                    .onClick(async () => {
+                        this.defaultWindow.loadFile(file);
+                    });
+            });
+
+            for (const [name, record] of Object.entries(this.settings.windows)) {
+                if (name === DEFAULT_WINDOW_NAME) continue;
+                menu.addItem((item) => {
+                    item.setTitle(`Open in window '${name}'`)
+                        .setIcon("open-elsewhere-glyph")
+                        .onClick(async () => {
+                            const namedWindow = this.windows.get(record.id);
+                            if (namedWindow !== undefined) {
+                                namedWindow.loadFile(file);
+                            }
+                        });
+                });
+            }
+
+            menu.showAtPosition({ x: event.pageX, y: event.pageY });
+        });
 
         this.addCommand({
             id: "open-image",
@@ -537,7 +574,7 @@ class Suggester extends FuzzySuggestModal<TFile> {
     getItems(): TFile[] {
         return this.files;
     }
-    onChooseItem(item: TFile, evt: MouseEvent | KeyboardEvent) {
+onChooseItem(item: TFile, evt: MouseEvent | KeyboardEvent) {
         this.file = item;
         this.close();
     }
