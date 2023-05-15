@@ -86,6 +86,12 @@ class NamedWindow {
 
     buildHead() {
         this.head = createEl("head");
+
+        this.head.createEl("meta", {
+            type: "charset",
+            attr: { charset: "utf-8"}
+        });
+
         this.head.createEl("link", {
             href: "app://obsidian.md/app.css",
             type: "text/css",
