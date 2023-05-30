@@ -1,49 +1,27 @@
-# Image Window
+> 🥇 Our documentation has moved ***[here](https://plugins.javalent.com/second-window)***.
+>
+> <a href='https://www.buymeacoffee.com/valentine195' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+> 
+> ---
+> 
+> **Development Status**: Maintenance Mode
+> 
+> Due to a glut of high priority Javalent plugin projects, this plugin is now entering maintenance mode for the time being. This is **not** a permanent status.
+> - PR's will be reviewed.
+> - *Yay* bugs will be reviewed and worked if able.
+> - Feature Requests **will not** be worked.
 
-This plugin allows you to open a note or image file in your vault in a new Obsidian window.
+Also known as **Image Window**, this plugin allows you to open a note or image file in your vault in a new pop-up Obsidian window.
 
-Notes and images can be opened in this way by right-clicking on them and selecting "Open in new window", or using the "Open image in new window" command.
+## Quickstart
 
-# Installation
+Notes and images can be opened in this way by right-clicking on them or their links, and selecting "**Open in New window**."
 
-## From within Obsidian
+Alternatively, they can be opened if the Core Plugin [Command Palette](https://help.obsidian.md/Plugins/Command+palette "Obsidian") is enabled, using the "**Open Image in New Window**" command.
 
-From Obsidian v0.9.8, you can activate this plugin within Obsidian by doing the following:
+## Why Use the Second Window Plugin?
 
--   Open Settings > Third-party plugin
--   Make sure Safe mode is **off**
--   Click Browse community plugins
--   Search for this plugin
--   Click Install
--   Once installed, close the community plugins window and activate the newly installed plugin
+The Second Window plugin is an enhancement to Obsidian's New Window functionality that adds features missing from the default behaviour. Here are a few examples:
 
-## From GitHub
-
--   Download the Latest Release from the Releases section of the GitHub Repository
--   Extract the plugin folder from the zip to your vault's plugins folder: `<vault>/.obsidian/plugins/`  
-    Note: On some machines the `.obsidian` folder may be hidden. On MacOS you should be able to press `Command+Shift+Dot` to show the folder in Finder.
--   Reload Obsidian
--   If prompted about Safe Mode, you can disable safe mode and enable the plugin.
-    Otherwise head to Settings, third-party plugins, make sure safe mode is off and
-    enable the plugin from there.
-
-### Updates
-
-You can follow the same procedure to update the plugin
-
-# Warning
-
-This plugin comes with no guarantee of stability and bugs may delete data.
-Please ensure you have automated backups.
-
-# TTRPG plugins
-
-If you're using Obsidian to run/plan a TTRPG, you may find my other plugin useful:
-
--   [Obsidian Leaflet](https://github.com/valentine195/obsidian-leaflet-plugin) - Add interactive maps to Obsidian.md notes
--   [Dice Roller](https://github.com/valentine195/obsidian-dice-roller) - Inline dice rolling for Obsidian.md
--   [Initiative Tracker](https://github.com/valentine195/obsidian-initiative-tracker) - Track TTRPG Initiative in Obsidian
--   [TTRPG Statblocks](https://github.com/valentine195/obsidian-5e-statblocks) - Create 5e-styled statblocks in Obsidian
--   [Fantasy Calendar](https://github.com/valentine195/obsidian-fantasy-calendar) - Create Fantasy Calendars in Obsidian
-
-<a href="https://www.buymeacoffee.com/valentine195"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=valentine195&button_colour=e3e7ef&font_colour=262626&font_family=Inter&outline_colour=262626&coffee_colour=ff0000"></a>
+-   When you request to "Open an Image in the Second Window," the plugin will send it to the existing Second Window that is already open. This way, you can set up the second window on a player-facing screen and leave it there.
+-   The plugin stretches the images to the full size of the window, while Obsidian's "New Window" opens them in the default size. This allows you to view images more comfortably without having to adjust the zoom or window size manually.
