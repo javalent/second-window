@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.0.7](https://github.com/javalent/second-window/compare/1.0.6...1.0.7) (2023-05-30)
+
+
+### Bug Fixes
+
+* Enforce UTF8 Encoding in second window ([b16d501](https://github.com/javalent/second-window/commit/b16d501b8d1653d498dfe012dd38c5eb68be0611))
+
 ### [1.0.6](https://github.com/valentine195/obsidian-image-window/compare/1.0.5...1.0.6) (2023-03-04)
 
 
