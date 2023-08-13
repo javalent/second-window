@@ -199,7 +199,11 @@ class NamedWindow {
         }
     }
 
-    private getNoteElement() {
+    openFile: string;
+    async loadNote(file: TFile) {
+        this.openFile = file.path;
+        const content = await this.parent.app.vault.cachedRead(file);
+
         const doc = createEl("html");
         doc.append(this.head);
 
@@ -215,14 +219,6 @@ class NamedWindow {
             .createDiv("markdown-reading-view")
             .createDiv("markdown-preview-view")
             .createDiv("markdown-preview-sizer markdown preview-section");
-        return { doc, note };
-    }
-
-    openFile: string;
-    async loadNote(file: TFile) {
-        this.openFile = file.path;
-        const content = await this.parent.app.vault.cachedRead(file);
-        const { doc, note } = this.getNoteElement();
         await MarkdownRenderer.renderMarkdown(
             content,
             note,
@@ -247,8 +243,14 @@ class NamedWindow {
             )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`
         );
 
-        const { doc, note } = this.getNoteElement();
-        note.appendChild(fragment);
+        const doc = createEl("html");
+        doc.append(this.head);
+
+        doc.createEl("body", { cls: this.mode })
+            .createDiv("app-container")
+            .createDiv("horizontal-main-container")
+            .createDiv("workspace")
+            .appendChild(fragment);
 
         await this.parent.app.vault.adapter.write(
             `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`,
