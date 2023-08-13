@@ -2,6 +2,7 @@ import "./main.css";
 
 import {
     App,
+    Component,
     debounce,
     FileSystemAdapter,
     FuzzySuggestModal,
@@ -17,7 +18,7 @@ import {
 import { PluginSettings, WindowState } from "./@types";
 
 import { getType } from "mime/lite";
-import { generateSlug } from "random-word-slugs"
+import { generateSlug } from "random-word-slugs";
 
 import type { BrowserWindow } from "electron";
 
@@ -43,6 +44,7 @@ declare global {
 declare module "obsidian" {
     interface App {
         customCss: {
+            extraStyleEls: HTMLStyleElement[];
             enabledSnippets: string[];
             getSnippetsFolder(): string;
             getThemeFolder(): string;
@@ -89,7 +91,7 @@ class NamedWindow {
 
         this.head.createEl("meta", {
             type: "charset",
-            attr: { charset: "utf-8"}
+            attr: { charset: "utf-8" }
         });
 
         this.head.createEl("link", {
@@ -97,30 +99,15 @@ class NamedWindow {
             type: "text/css",
             attr: { rel: "stylesheet" }
         });
-        this.head.createEl("link", {
+        /*  this.head.createEl("link", {
             href: this.theme,
             type: "text/css",
             attr: { rel: "stylesheet" }
-        });
-
-        for (const snippet of this.parent.app.customCss.enabledSnippets) {
-            this.head.createEl("link", {
-                href: this.parent.app.vault.adapter.getResourcePath(
-                    `${this.parent.app.customCss.getSnippetsFolder()}/${snippet}.css`
-                ),
-                type: "text/css",
-                attr: { rel: "stylesheet" }
-            });
-        }
-        for (const plugin of Object.keys(this.parent.app.plugins.plugins)) {
-            if (!this.parent.app.plugins.plugins[plugin]._loaded) continue;
-            this.head.createEl("link", {
-                href: this.parent.app.vault.adapter.getResourcePath(
-                    `${this.parent.app.plugins.getPluginFolder()}/${plugin}/styles.css`
-                ),
-                type: "text/css",
-                attr: { rel: "stylesheet" }
-            });
+        }); */
+        for (const style of Array.from(
+            document.head.querySelectorAll("style")
+        )) {
+            this.head.appendChild(style.cloneNode(true));
         }
         return this.head;
     }
@@ -138,7 +125,8 @@ class NamedWindow {
             : "theme-light";
     }
     async loadFile(file: TFile) {
-        if (!(this.parent.app.vault.adapter instanceof FileSystemAdapter)) return;
+        if (!(this.parent.app.vault.adapter instanceof FileSystemAdapter))
+            return;
 
         let encoded: string;
         if (/image/.test(getType(file.extension))) {
@@ -151,7 +139,8 @@ class NamedWindow {
         if (!this.window) {
             this.window = new remote.BrowserWindow();
             this.window.menuBarVisible = false;
-            const state: WindowState | undefined = this.parent.settings.windows[this.name]?.hosts?.[os.hostname()];
+            const state: WindowState | undefined =
+                this.parent.settings.windows[this.name]?.hosts?.[os.hostname()];
             if (state) {
                 this.window.setBounds(state);
                 this.window.setFullScreen(state.fullscreen);
@@ -162,7 +151,11 @@ class NamedWindow {
                 this.window = null;
             });
 
-            const positionHandler = debounce(this.onMoved.bind(this), 500, true)
+            const positionHandler = debounce(
+                this.onMoved.bind(this),
+                500,
+                true
+            );
             this.window.on("move", positionHandler);
 
             // resize is fired when the window is restored from maximized, and we need to know
@@ -177,21 +170,22 @@ class NamedWindow {
     }
     /**
      * Save window position and size under a key specific to the host.  This way,
-     * sharing the vault with a second computer with a different monitor layout will not overwrite the 
+     * sharing the vault with a second computer with a different monitor layout will not overwrite the
      * first computer's saved state.
-     * @param name 
+     * @param name
      */
     async onMoved() {
         if (!this.parent.settings.saveWindowLocations) return;
         const position = this.window.getPosition();
         const size = this.window.getSize();
         const hostname = os.hostname();
-        if (!this.parent.settings.windows[this.name]) this.parent.settings.windows[this.name] = { hosts: {} };
-        this.parent.settings.windows[this.name].hosts[hostname] = { 
-            x: position[0], 
-            y: position[1], 
-            width: size[0], 
-            height: size[1], 
+        if (!this.parent.settings.windows[this.name])
+            this.parent.settings.windows[this.name] = { hosts: {} };
+        this.parent.settings.windows[this.name].hosts[hostname] = {
+            x: position[0],
+            y: position[1],
+            width: size[0],
+            height: size[1],
             fullscreen: this.window.isFullScreen(),
             maximized: this.window.isMaximized()
         };
@@ -204,11 +198,8 @@ class NamedWindow {
             this.updateLoadedNote();
         }
     }
-    openFile: string;
-    async loadNote(file: TFile) {
-        this.openFile = file.path;
-        const content = await this.parent.app.vault.cachedRead(file);
 
+    private getNoteElement() {
         const doc = createEl("html");
         doc.append(this.head);
 
@@ -224,8 +215,20 @@ class NamedWindow {
             .createDiv("markdown-reading-view")
             .createDiv("markdown-preview-view")
             .createDiv("markdown-preview-sizer markdown preview-section");
+        return { doc, note };
+    }
 
-        await MarkdownRenderer.renderMarkdown(content, note, "", null);
+    openFile: string;
+    async loadNote(file: TFile) {
+        this.openFile = file.path;
+        const content = await this.parent.app.vault.cachedRead(file);
+        const { doc, note } = this.getNoteElement();
+        await MarkdownRenderer.renderMarkdown(
+            content,
+            note,
+            "",
+            new Component()
+        );
 
         await this.parent.app.vault.adapter.write(
             `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`,
@@ -244,17 +247,23 @@ class NamedWindow {
             )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`
         );
 
-        const html = createDiv();
-        html.appendChild(fragment);
+        const { doc, note } = this.getNoteElement();
+        note.appendChild(fragment);
 
-        const encoded =
-            "data:text/html;charset=utf-8," + encodeURI(html.innerHTML);
+        await this.parent.app.vault.adapter.write(
+            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`,
+            doc.outerHTML
+        );
 
-        html.detach();
-        return encoded;
+        doc.detach();
+        return this.parent.app.vault.adapter.getResourcePath(
+            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`
+        );
     }
     async updateLoadedNote() {
-        const file = await this.parent.app.vault.getAbstractFileByPath(this.openFile);
+        const file = await this.parent.app.vault.getAbstractFileByPath(
+            this.openFile
+        );
         if (!(file instanceof TFile)) return;
         this.loadFile(file);
     }
@@ -262,7 +271,7 @@ class NamedWindow {
         if (this.window) {
             this.window.close();
         }
-        console.log("Image Window unloaded.");
+        console.log("Second Window unloaded.");
     }
     sanitizeHTMLToDom(html: string): DocumentFragment {
         return sanitizeHTMLToDom(html);
@@ -280,7 +289,7 @@ class ImageWindowSettingTab extends PluginSettingTab {
         const { containerEl } = this;
 
         containerEl.empty();
-        containerEl.addClass("second-window-settings")
+        containerEl.addClass("second-window-settings");
         containerEl.createEl("h2", {
             text: "Settings for Second Window Plugin"
         });
@@ -307,18 +316,15 @@ class ImageWindowSettingTab extends PluginSettingTab {
                     })
             );
 
-        this.buildWindows(
-            this.containerEl.createDiv()
-        );
-
-        
-        
+        this.buildWindows(this.containerEl.createDiv());
     }
     buildWindows(el: HTMLElement) {
         const additionalContainer = el.createDiv("additional-container");
         new Setting(additionalContainer)
             .setName("Add New Named Window")
-            .setDesc("Name windows allow you to specify specific windows to open files in.")
+            .setDesc(
+                "Name windows allow you to specify specific windows to open files in."
+            )
             .addButton((button) =>
                 button
                     .setIcon("plus")
@@ -337,21 +343,20 @@ class ImageWindowSettingTab extends PluginSettingTab {
                         this.display();
                     })
             );
-        const additional = additionalContainer.createDiv("additional")
+        const additional = additionalContainer.createDiv("additional");
         for (const initialName of Object.keys(this.parent.settings.windows)) {
             if (initialName === DEFAULT_WINDOW_NAME) continue;
             const state = { collision: false, name: initialName };
-            const setting = new Setting(additional)
-                .addExtraButton((button) =>
-                    button
-                        .setIcon("trash")
-                        .setTooltip("Delete this window")
-                        .onClick(async () => {
-                            delete this.parent.settings.windows[state.name];
-                            additional.removeChild(setting.settingEl);
-                            await this.parent.saveSettings();
-                        })
-                );
+            const setting = new Setting(additional).addExtraButton((button) =>
+                button
+                    .setIcon("trash")
+                    .setTooltip("Delete this window")
+                    .onClick(async () => {
+                        delete this.parent.settings.windows[state.name];
+                        additional.removeChild(setting.settingEl);
+                        await this.parent.saveSettings();
+                    })
+            );
             const text = new TextComponent(setting.nameEl)
                 .setValue(initialName)
                 .onChange(async (value) => {
@@ -378,7 +383,7 @@ class ImageWindowSettingTab extends PluginSettingTab {
                 });
             text.inputEl.on("focusin", "input", () => {
                 text.inputEl.select();
-            })
+            });
             text.inputEl.on("focusout", "input", () => {
                 if (state.collision) {
                     state.collision = false;
@@ -387,7 +392,7 @@ class ImageWindowSettingTab extends PluginSettingTab {
             });
         }
     }
-};
+}
 
 export default class ImageWindow extends Plugin {
     settings: PluginSettings;
@@ -403,26 +408,35 @@ export default class ImageWindow extends Plugin {
     get stylesheets() {
         return document.head.innerHTML;
     }
-    manifold<TArg>(handler: (arg: TArg) => void): (arg: TArg) => void  {
+    manifold<TArg>(handler: (arg: TArg) => void): (arg: TArg) => void {
         return (arg: TArg) => {
             handler.bind(this.defaultWindow)(arg);
             for (const window of this.windows.values()) {
                 handler.bind(window)(arg);
             }
-        }
+        };
     }
     async onload() {
         await this.loadSettings();
-        this.app.workspace.onLayoutReady(this.manifold<void>(this.defaultWindow.buildHead));
-        this.addSettingTab(new ImageWindowSettingTab(this, this));        
+        this.app.workspace.onLayoutReady(
+            this.manifold<void>(this.defaultWindow.buildHead)
+        );
+        this.addSettingTab(new ImageWindowSettingTab(this, this));
         this.registerEvent(
-            this.app.workspace.on("css-change", this.manifold<void>(this.defaultWindow.buildHead))
-        )
+            this.app.workspace.on(
+                "css-change",
+                this.manifold<void>(this.defaultWindow.buildHead)
+            )
+        );
 
         this.registerEvent(
             this.app.vault.on(
                 "modify",
-                debounce(this.manifold(this.defaultWindow.onModified), 500, true)
+                debounce(
+                    this.manifold(this.defaultWindow.onModified),
+                    500,
+                    true
+                )
             )
         );
 
@@ -434,16 +448,18 @@ export default class ImageWindow extends Plugin {
                 /* if (!/image/.test(getType(file.extension))) return; */
 
                 menu.addItem((item) => {
-                    item.setTitle("Open in new window")
+                    item.setTitle("Open in second window")
                         .setIcon("open-elsewhere-glyph")
                         .onClick(async () => {
                             this.defaultWindow.loadFile(file);
                         });
                 });
-                for (const [name, record] of Object.entries(this.settings.windows)) {
+                for (const [name, record] of Object.entries(
+                    this.settings.windows
+                )) {
                     if (name === DEFAULT_WINDOW_NAME) continue;
                     menu.addItem((item) => {
-                        item.setTitle(`Open in window '${name}'`)
+                        item.setTitle(`Open in second window '${name}'`)
                             .setIcon("open-elsewhere-glyph")
                             .onClick(async () => {
                                 const namedWindow = this.windows.get(record.id);
@@ -473,7 +489,7 @@ export default class ImageWindow extends Plugin {
             }
         });
 
-        console.log("Image Window loaded.");
+        console.log("Second Window loaded.");
     }
 
     async onunload() {
