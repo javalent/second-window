@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.0.8](https://github.com/javalent/second-window/compare/1.0.7...1.0.8) (2023-08-13)
+
+
+### Bug Fixes
+
+* reduce dom for images ([f0d6c36](https://github.com/javalent/second-window/commit/f0d6c36f979041b33312d4368946443023d2eeb6))
+
+## [1.0.7](https://github.com/javalent/second-window/compare/1.0.6...1.0.7) (2023-08-13)
+
+
+### Bug Fixes
+
+* Enforce UTF8 Encoding in second window ([b16d501](https://github.com/javalent/second-window/commit/b16d501b8d1653d498dfe012dd38c5eb68be0611))
+* inherit css correctly ([56239c0](https://github.com/javalent/second-window/commit/56239c00cdb5e9b735b4b0ac8582eba317d1c950))
+
 ### [1.0.6](https://github.com/valentine195/obsidian-image-window/compare/1.0.5...1.0.6) (2023-03-04)
 
 
