@@ -455,10 +455,8 @@ export default class ImageWindow extends Plugin {
             const target = event.target as HTMLElement;
             if (target.localName !== "img") return;
 
-            const vaultName = this.app.vault.getName().replace(" ", "%20")
             const imgPath = (target as HTMLImageElement).currentSrc;
-            const cleanPath = imgPath.split(`${vaultName}/`)[1].split("?")[0];
-            const file = this.app.vault.getAbstractFileByPath(cleanPath);
+            const file = this.app.vault.resolveFileUrl(imgPath)
 
             if (!(file instanceof TFile)) return;
             const menu = new Menu();
