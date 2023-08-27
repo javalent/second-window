@@ -60,6 +60,7 @@ declare module "obsidian" {
         config: {
             theme?: "obsidian" | "moonstone";
         };
+        resolveFileUrl(path: string): TFile;
     }
     interface Plugin {
         _loaded: boolean;
@@ -479,7 +480,7 @@ export default class ImageWindow extends Plugin {
             if (target.localName !== "img") return;
 
             const imgPath = (target as HTMLImageElement).currentSrc;
-            const file = this.app.vault.resolveFileUrl(imgPath)
+            const file = this.app.vault.resolveFileUrl(imgPath);
 
             if (!(file instanceof TFile)) return;
             const menu = new Menu();
@@ -491,7 +492,9 @@ export default class ImageWindow extends Plugin {
                     });
             });
 
-            for (const [name, record] of Object.entries(this.settings.windows)) {
+            for (const [name, record] of Object.entries(
+                this.settings.windows
+            )) {
                 if (name === DEFAULT_WINDOW_NAME) continue;
                 menu.addItem((item) => {
                     item.setTitle(`Open in window '${name}'`)
@@ -595,7 +598,7 @@ class Suggester extends FuzzySuggestModal<TFile> {
     getItems(): TFile[] {
         return this.files;
     }
-onChooseItem(item: TFile, evt: MouseEvent | KeyboardEvent) {
+    onChooseItem(item: TFile, evt: MouseEvent | KeyboardEvent) {
         this.file = item;
         this.close();
     }
