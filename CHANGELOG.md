@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/javalent/second-window/compare/1.0.8...1.1.0) (2023-08-27)
+
+
+### Features
+
+* Adds a context menu in reading mode & live preview ([eefada6](https://github.com/javalent/second-window/commit/eefada6509b9dc3e7343ebd92b492ee9e2758ca4))
+
 ## [1.0.8](https://github.com/javalent/second-window/compare/1.0.7...1.0.8) (2023-08-13)
 
 
