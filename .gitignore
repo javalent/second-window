@@ -21,3 +21,4 @@ webpack.dev.js
 main.js.LICENSE.txt
 
 .env
+.vscode
