@@ -1,5 +1,7 @@
 export interface PluginSettings {
     saveWindowLocations: boolean;
+    useCustomWindowName: boolean;
+    customWindowName: string;
     /**
      * indexed by configured window name, plus the default window at "DEFAULT"
      */ 

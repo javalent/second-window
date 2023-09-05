@@ -26,8 +26,12 @@ import type { BrowserWindow } from "electron";
 import { remote } from "electron";
 import * as os from "os";
 
+const DEFAULT_WINDOW_NAME = "DEFAULT";
+
 const DEFAULT_SETTINGS: PluginSettings = {
     saveWindowLocations: true,
+    useCustomWindowName: false,
+    customWindowName: DEFAULT_WINDOW_NAME,
     windows: {}
 };
 
@@ -164,7 +168,12 @@ class NamedWindow {
             this.window.on("resize", positionHandler);
         }
 
-        this.window.setTitle(file.name);
+        if (this.parent.settings.useCustomWindowName) {
+            const isNamedWindow = this.name !== DEFAULT_WINDOW_NAME;
+            this.window.setTitle(isNamedWindow ? this.name : this.parent.settings.customWindowName);
+        } else {
+            this.window.setTitle(file.name);
+        }
 
         await this.window.loadURL(encoded);
 
@@ -282,8 +291,6 @@ class NamedWindow {
     }
 }
 
-const DEFAULT_WINDOW_NAME = "DEFAULT";
-
 class ImageWindowSettingTab extends PluginSettingTab {
     constructor(private plugin: Plugin, private parent: Parent) {
         super(parent.app, plugin);
@@ -319,6 +326,33 @@ class ImageWindowSettingTab extends PluginSettingTab {
                         await this.parent.saveSettings();
                     })
             );
+
+        new Setting(containerEl)
+            .setName("Use Custom Window Name")
+            .setDesc("If true, use a custom window name instead of the file name. Set as window's name when using named windows.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.parent.settings.useCustomWindowName)
+                    .onChange(async (value) => {
+                        this.parent.settings.useCustomWindowName = value;
+                        await this.parent.saveSettings();
+                        this.display();
+                    })
+            );
+
+        if (this.parent.settings.useCustomWindowName) {
+            new Setting(containerEl)
+                .setName("Custom Window Name")
+                .setDesc("The custom window name to show when not using named windows.")
+                .addText((text) =>
+                    text.setValue(this.parent.settings.customWindowName)
+                        .onChange(async (value) => {
+                            this.parent.settings.customWindowName = value;
+                            await this.parent.saveSettings();
+                        })
+                );
+        }
+
         this.buildWindows(this.containerEl.createDiv());
     }
     buildWindows(el: HTMLElement) {
