@@ -28,7 +28,9 @@ import * as os from "os";
 
 const DEFAULT_SETTINGS: PluginSettings = {
     saveWindowLocations: true,
-    windows: {}
+    windows: {},
+    autoplayVideos: false,
+    showVideoControls: true
 };
 
 declare global {
@@ -135,6 +137,8 @@ class NamedWindow {
             encoded = await this.loadImage(file);
         } else if (file.extension == "md") {
             encoded = await this.loadNote(file);
+        }else if (/video/.test(getType(file.extension))) {
+           encoded = await this.loadVideo(file)
         } else {
             return;
         }
@@ -264,6 +268,36 @@ class NamedWindow {
             `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`
         );
     }
+
+    async loadVideo(file: TFile) {
+        const controls = this.parent.settings.showVideoControls ? "controls " : ""
+        const autoplay = this.parent.settings.autoplayVideos ? "autoplay " : ""
+        const fragment = this.sanitizeHTMLToDom(
+            `<div style="height: 100%; width: 100%;"><video ${controls}${autoplay}src="${this.parent.app.vault.adapter.getResourcePath(
+                file.path
+            )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`
+        );
+
+        const doc = createEl("html");
+        doc.append(this.head);
+
+        doc.createEl("body", { cls: this.mode })
+            .createDiv("app-container")
+            .createDiv("horizontal-main-container")
+            .createDiv("workspace")
+            .appendChild(fragment);
+
+        await this.parent.app.vault.adapter.write(
+            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`,
+            doc.outerHTML
+        );
+
+        doc.detach();
+        return this.parent.app.vault.adapter.getResourcePath(
+            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`
+        );
+    }
+
     async updateLoadedNote() {
         const file = await this.parent.app.vault.getAbstractFileByPath(
             this.openFile
@@ -317,6 +351,30 @@ class ImageWindowSettingTab extends PluginSettingTab {
                             }
                         }
                         await this.parent.saveSettings();
+                    })
+            );
+        new Setting(containerEl)
+            .setName("Autoplay videos")
+            .setDesc(
+                "If true, video files will autoplay when opened in second windwow."
+            )
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.parent.settings.autoplayVideos)
+                    .onChange(async (value) => {
+                        this.parent.settings.autoplayVideos = value;
+                    })
+            );
+        new Setting(containerEl)
+            .setName("Show video controls")
+            .setDesc(
+                "If true, video controls will be shown in second window"
+            )
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.parent.settings.showVideoControls)
+                    .onChange(async (value) => {
+                        this.parent.settings.showVideoControls = value;
                     })
             );
         this.buildWindows(this.containerEl.createDiv());

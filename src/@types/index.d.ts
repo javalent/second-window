@@ -4,6 +4,10 @@ export interface PluginSettings {
      * indexed by configured window name, plus the default window at "DEFAULT"
      */ 
     windows: Record<string, WindowSettings>;
+
+    autoplayVideos: boolean;
+    
+    showVideoControls: boolean;
 }
 
 export interface WindowSettings {
