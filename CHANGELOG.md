@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/javalent/second-window/compare/1.1.0...1.2.0) (2024-01-03)
+
+
+### Features
+
+* add custom window name setting ([#35](https://github.com/javalent/second-window/issues/35)) ([01ca9bc](https://github.com/javalent/second-window/commit/01ca9bc52e065b23ea261d7f3a98bf60c14bc25a))
+
+
+### Bug Fixes
+
+* Fixes opening windows failing to load (close [#40](https://github.com/javalent/second-window/issues/40)) ([75abc4c](https://github.com/javalent/second-window/commit/75abc4c1cdde64e239f8840aa756b4d673377343))
+
 ## [1.1.0](https://github.com/javalent/second-window/compare/1.0.8...1.1.0) (2023-08-27)
 
 
