@@ -23,8 +23,12 @@ import { generateSlug } from "random-word-slugs";
 
 import * as os from "os";
 
+const DEFAULT_WINDOW_NAME = "Second Window";
+
 const DEFAULT_SETTINGS: PluginSettings = {
     saveWindowLocations: true,
+    useCustomWindowName: false,
+    customWindowName: DEFAULT_WINDOW_NAME,
     windows: {}
 };
 
@@ -160,12 +164,19 @@ class NamedWindow extends Component {
             );
         }
 
-        this.window.win.electronWindow.setTitle(file.name);
-
         await this.leaf.openFile(file, { state: { mode: "preview" } });
 
         this.window.rootEl.querySelector(".status-bar")?.detach();
         this.adjust(this.leaf, /image/.test(getType(file.extension)));
+        if (this.parent.settings.useCustomWindowName) {
+            this.window.win.electronWindow.setTitle(
+                this.name !== DEFAULT_WINDOW_NAME
+                    ? this.name
+                    : this.parent.settings.customWindowName
+            );
+        } else {
+            this.window.win.electronWindow.setTitle(file.name);
+        }
     }
     /**
      * Save window position and size under a key specific to the host.  This way,
@@ -199,8 +210,6 @@ class NamedWindow extends Component {
         console.log("Second Window unloaded.");
     }
 }
-
-const DEFAULT_WINDOW_NAME = "DEFAULT";
 
 class ImageWindowSettingTab extends PluginSettingTab {
     constructor(private plugin: Plugin, private parent: Parent) {
@@ -237,6 +246,38 @@ class ImageWindowSettingTab extends PluginSettingTab {
                         await this.parent.saveSettings();
                     })
             );
+
+        new Setting(containerEl)
+            .setName("Use Custom Window Name")
+            .setDesc(
+                "If true, use a custom window name instead of the file name. Set as window's name when using named windows."
+            )
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.parent.settings.useCustomWindowName)
+                    .onChange(async (value) => {
+                        this.parent.settings.useCustomWindowName = value;
+                        await this.parent.saveSettings();
+                        this.display();
+                    })
+            );
+
+        if (this.parent.settings.useCustomWindowName) {
+            new Setting(containerEl)
+                .setName("Custom Window Name")
+                .setDesc(
+                    "The custom window name to show when not using named windows."
+                )
+                .addText((text) =>
+                    text
+                        .setValue(this.parent.settings.customWindowName)
+                        .onChange(async (value) => {
+                            this.parent.settings.customWindowName = value;
+                            await this.parent.saveSettings();
+                        })
+                );
+        }
+
         this.buildWindows(this.containerEl.createDiv());
     }
     buildWindows(el: HTMLElement) {
@@ -331,6 +372,12 @@ export default class ImageWindow extends Plugin {
     }
     async onload() {
         await this.loadSettings();
+        if ("DEFAULT" in this.settings.windows) {
+            this.settings.windows[DEFAULT_WINDOW_NAME] = {
+                ...this.settings.windows.DEFAULT
+            };
+            delete this.settings.windows.DEFAULT;
+        }
         this.addSettingTab(new ImageWindowSettingTab(this, this));
 
         this.registerEvent(
