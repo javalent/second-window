@@ -6,24 +6,21 @@ import {
     debounce,
     FileSystemAdapter,
     FuzzySuggestModal,
-    MarkdownRenderer,
     Menu,
     Plugin,
     PluginSettingTab,
-    sanitizeHTMLToDom,
     Setting,
-    TAbstractFile,
     TextComponent,
-    TFile
+    TFile,
+    WorkspaceLeaf,
+    WorkspaceWindow
 } from "obsidian";
 import { PluginSettings, WindowState } from "./@types";
+import type { BrowserWindow } from "electron";
 
 import { getType } from "mime/lite";
 import { generateSlug } from "random-word-slugs";
 
-import type { BrowserWindow } from "electron";
-
-import { remote } from "electron";
 import * as os from "os";
 
 const DEFAULT_SETTINGS: PluginSettings = {
@@ -39,6 +36,7 @@ declare global {
                 options: Record<string, any>
             ): DocumentFragment;
         };
+        electronWindow: BrowserWindow;
     }
 }
 
@@ -65,6 +63,19 @@ declare module "obsidian" {
     interface Plugin {
         _loaded: boolean;
     }
+    interface View {
+        headerEl: HTMLDivElement;
+        contentEl: HTMLDivElement;
+    }
+    interface WorkspaceLeaf {
+        parent: WorkspaceTabs;
+    }
+    interface WorkspaceTabs {
+        tabHeaderContainerEl: HTMLDivElement;
+    }
+    interface WorkspaceWindow {
+        rootEl: HTMLDivElement;
+    }
 }
 
 interface Parent {
@@ -75,100 +86,86 @@ interface Parent {
 
 let uniqueId = 0;
 
-class NamedWindow {
-    window: BrowserWindow;
-    head: HTMLHeadElement;
+class NamedWindow extends Component {
+    window: WorkspaceWindow;
     stale = false;
+    leaf: WorkspaceLeaf;
 
     constructor(private parent: Parent, private name: string) {
-        // no code, lazy init
+        super();
+        this.load();
     }
 
     rename(name: string) {
         this.name = name;
     }
 
-    buildHead() {
-        this.head = createEl("head");
+    adjust(leaf: WorkspaceLeaf, image: boolean) {
+        let parent = leaf.parent;
+        parent.tabHeaderContainerEl.empty();
+        this.leaf.view.headerEl.empty();
 
-        this.head.createEl("meta", {
-            type: "charset",
-            attr: { charset: "utf-8" }
-        });
-
-        this.head.createEl("link", {
-            href: "app://obsidian.md/app.css",
-            type: "text/css",
-            attr: { rel: "stylesheet" }
-        });
-        /*  this.head.createEl("link", {
-            href: this.theme,
-            type: "text/css",
-            attr: { rel: "stylesheet" }
-        }); */
-        for (const style of Array.from(
-            document.head.querySelectorAll("style")
-        )) {
-            this.head.appendChild(style.cloneNode(true));
+        if (image) {
+            this.leaf.view.contentEl
+                .querySelector("img")
+                ?.setAttr(
+                    "style",
+                    "height: 100%; width: 100%; object-fit: contain"
+                );
         }
-        return this.head;
     }
 
-    get theme() {
-        return this.parent.app.vault.adapter.getResourcePath(
-            `${this.parent.app.customCss.getThemeFolder()}/${
-                this.parent.app.customCss.theme
-            }.css`
-        );
-    }
-    get mode() {
-        return (this.parent.app.vault.config?.theme ?? "obsidian") == "obsidian"
-            ? "theme-dark"
-            : "theme-light";
-    }
     async loadFile(file: TFile) {
         if (!(this.parent.app.vault.adapter instanceof FileSystemAdapter))
             return;
-
-        let encoded: string;
-        if (/image/.test(getType(file.extension))) {
-            encoded = await this.loadImage(file);
-        } else if (file.extension == "md") {
-            encoded = await this.loadNote(file);
-        } else {
-            return;
-        }
         if (!this.window) {
-            this.window = new remote.BrowserWindow();
-            this.window.menuBarVisible = false;
             const state: WindowState | undefined =
                 this.parent.settings.windows[this.name]?.hosts?.[os.hostname()];
+
+            this.leaf = this.parent.app.workspace.openPopoutLeaf();
+            this.window = this.leaf.getContainer() as WorkspaceWindow;
+
             if (state) {
-                this.window.setBounds(state);
-                this.window.setFullScreen(state.fullscreen);
-                if (state.maximized) this.window.maximize();
+                this.window.win.electronWindow.setBounds(state);
+                this.window.win.electronWindow.setFullScreen(state.fullscreen);
+                if (state.maximized) this.window.win.electronWindow.maximize();
             }
-            this.window.on("close", () => {
-                this.openFile = null;
+            this.window.win.electronWindow.on("close", () => {
                 this.window = null;
             });
+            this.registerEvent(
+                this.parent.app.workspace.on("window-close", (win, window) => {
+                    if (win == this.window) {
+                        this.window = null;
+                    }
+                })
+            );
 
             const positionHandler = debounce(
                 this.onMoved.bind(this),
                 500,
                 true
             );
-            this.window.on("move", positionHandler);
+            this.window.win.electronWindow.on("move", positionHandler);
 
             // resize is fired when the window is restored from maximized, and we need to know
-            this.window.on("resize", positionHandler);
+            this.window.win.electronWindow.on("resize", positionHandler);
+            this.window.win.electronWindow.on(
+                "enter-full-screen",
+                positionHandler
+            );
+            this.window.win.electronWindow.on(
+                "leave-full-screen",
+                positionHandler
+            );
         }
 
-        this.window.setTitle(file.name);
+        this.window.win.electronWindow.setTitle(file.name);
 
-        await this.window.loadURL(encoded);
+        await this.leaf.openFile(file, { state: { mode: "preview" } });
 
-        this.window.moveTop();
+        this.window.rootEl.querySelector(".status-bar")?.detach();
+        this.adjust(this.leaf, /image/.test(getType(file.extension)));
     }
     /**
      * Save window position and size under a key specific to the host.  This way,
@@ -178,8 +175,8 @@ class NamedWindow {
      */
     async onMoved() {
         if (!this.parent.settings.saveWindowLocations) return;
-        const position = this.window.getPosition();
-        const size = this.window.getSize();
+        const position = this.window.win.electronWindow.getPosition();
+        const size = this.window.win.electronWindow.getSize();
         const hostname = os.hostname();
         if (!this.parent.settings.windows[this.name])
             this.parent.settings.windows[this.name] = { hosts: {} };
@@ -188,97 +185,18 @@ class NamedWindow {
             y: position[1],
             width: size[0],
             height: size[1],
-            fullscreen: this.window.isFullScreen(),
-            maximized: this.window.isMaximized()
+            fullscreen: this.window.win.electronWindow.isFullScreen(),
+            maximized: this.window.win.electronWindow.isMaximized()
         };
         // REVISIT don't invalidate views for this save, even if we end up having a settings dirty flag
         await this.parent.saveSettings();
     }
-    onModified(file: TAbstractFile) {
-        if (!this.openFile) return;
-        if (this.openFile == file.path) {
-            this.updateLoadedNote();
-        }
-    }
 
-    openFile: string;
-    async loadNote(file: TFile) {
-        this.openFile = file.path;
-        const content = await this.parent.app.vault.cachedRead(file);
-
-        const doc = createEl("html");
-        doc.append(this.head);
-
-        const note = doc
-            .createEl("body", { cls: this.mode })
-            .createDiv("app-container")
-            .createDiv("horizontal-main-container")
-            .createDiv("workspace")
-            .createDiv("workspace-split mod-vertical mod-root")
-            .createDiv("workspace-leaf mod-active")
-            .createDiv("workspace-leaf-content")
-            .createDiv("view-content")
-            .createDiv("markdown-reading-view")
-            .createDiv("markdown-preview-view")
-            .createDiv("markdown-preview-sizer markdown preview-section");
-        await MarkdownRenderer.renderMarkdown(
-            content,
-            note,
-            "",
-            new Component()
-        );
-
-        await this.parent.app.vault.adapter.write(
-            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`,
-            doc.outerHTML
-        );
-
-        doc.detach();
-        return this.parent.app.vault.adapter.getResourcePath(
-            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`
-        );
-    }
-    async loadImage(file: TFile) {
-        const fragment = this.sanitizeHTMLToDom(
-            `<div style="height: 100%; width: 100%;"><img src="${this.parent.app.vault.adapter.getResourcePath(
-                file.path
-            )}" style="height: 100%; width: 100%; object-fit: contain;"></div>`
-        );
-
-        const doc = createEl("html");
-        doc.append(this.head);
-
-        doc.createEl("body", { cls: this.mode })
-            .createDiv("app-container")
-            .createDiv("horizontal-main-container")
-            .createDiv("workspace")
-            .appendChild(fragment);
-
-        await this.parent.app.vault.adapter.write(
-            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`,
-            doc.outerHTML
-        );
-
-        doc.detach();
-        return this.parent.app.vault.adapter.getResourcePath(
-            `${this.parent.app.plugins.getPluginFolder()}/image-window/file.html`
-        );
-    }
-    async updateLoadedNote() {
-        const file = await this.parent.app.vault.getAbstractFileByPath(
-            this.openFile
-        );
-        if (!(file instanceof TFile)) return;
-        this.loadFile(file);
-    }
     onunload() {
         if (this.window) {
-            this.window.close();
+            this.window.win.electronWindow.close();
         }
         console.log("Second Window unloaded.");
-    }
-    sanitizeHTMLToDom(html: string): DocumentFragment {
-        return sanitizeHTMLToDom(html);
     }
 }
 
@@ -411,44 +329,15 @@ export default class ImageWindow extends Plugin {
     get stylesheets() {
         return document.head.innerHTML;
     }
-    manifold<TArg>(handler: (arg: TArg) => void): (arg: TArg) => void {
-        return (arg: TArg) => {
-            handler.bind(this.defaultWindow)(arg);
-            for (const window of this.windows.values()) {
-                handler.bind(window)(arg);
-            }
-        };
-    }
     async onload() {
         await this.loadSettings();
-        this.app.workspace.onLayoutReady(
-            this.manifold<void>(this.defaultWindow.buildHead)
-        );
         this.addSettingTab(new ImageWindowSettingTab(this, this));
-        this.registerEvent(
-            this.app.workspace.on(
-                "css-change",
-                this.manifold<void>(this.defaultWindow.buildHead)
-            )
-        );
-
-        this.registerEvent(
-            this.app.vault.on(
-                "modify",
-                debounce(
-                    this.manifold(this.defaultWindow.onModified),
-                    500,
-                    true
-                )
-            )
-        );
 
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu, file) => {
                 if (!(this.app.vault.adapter instanceof FileSystemAdapter))
                     return;
                 if (!(file instanceof TFile)) return;
-                /* if (!/image/.test(getType(file.extension))) return; */
 
                 menu.addItem((item) => {
                     item.setTitle("Open in second window")
@@ -532,7 +421,10 @@ export default class ImageWindow extends Plugin {
     }
 
     async onunload() {
-        this.manifold<void>(this.defaultWindow.onunload)();
+        this.defaultWindow.unload();
+        for (const window of this.windows.values()) {
+            window.unload();
+        }
     }
 
     async loadSettings() {
