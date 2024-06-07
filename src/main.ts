@@ -119,7 +119,7 @@ class NamedWindow extends Component {
         }
     }
 
-    async loadFile(file: TFile) {
+    async loadFile(target: TFile | HTMLImageElement) {
         if (!(this.parent.app.vault.adapter instanceof FileSystemAdapter))
             return;
         if (!this.window) {
@@ -164,10 +164,18 @@ class NamedWindow extends Component {
             );
         }
 
-        await this.leaf.openFile(file, { state: { mode: "preview" } });
+        if (target instanceof TFile)
+            await this.leaf.openFile(target, { state: { mode: "preview" } });
+        else if (target instanceof HTMLImageElement)
+            this.leaf.view.contentEl.setChildrenInPlace([target.cloneNode(true)]);
 
         this.window.rootEl.querySelector(".status-bar")?.detach();
-        this.adjust(this.leaf, /image/.test(getType(file.extension)));
+
+        if (target instanceof TFile)
+            this.adjust(this.leaf, /image/.test(getType(target.extension)));
+        else if (target instanceof HTMLImageElement)
+            this.adjust(this.leaf, true);
+
         if (this.parent.settings.useCustomWindowName) {
             this.window.win.electronWindow.setTitle(
                 this.name !== DEFAULT_WINDOW_NAME
@@ -175,9 +183,10 @@ class NamedWindow extends Component {
                     : this.parent.settings.customWindowName
             );
         } else {
-            this.window.win.electronWindow.setTitle(file.name);
+            this.window.win.electronWindow.setTitle(target.name);
         }
     }
+
     /**
      * Save window position and size under a key specific to the host.  This way,
      * sharing the vault with a second computer with a different monitor layout will not overwrite the
@@ -370,6 +379,32 @@ export default class ImageWindow extends Plugin {
     get stylesheets() {
         return document.head.innerHTML;
     }
+
+    addMenuItems(menu: Menu, target: TFile | HTMLImageElement): void {
+        menu.addItem((item) => {
+            item.setTitle("Open in second window")
+                .setIcon("open-elsewhere-glyph")
+                .onClick(async () => {
+                    this.defaultWindow.loadFile(target);
+                });
+        });
+        for (const [name, record] of Object.entries(
+            this.settings.windows
+        )) {
+            if (name === DEFAULT_WINDOW_NAME) continue;
+            menu.addItem((item) => {
+                item.setTitle(`Open in second window '${name}'`)
+                    .setIcon("open-elsewhere-glyph")
+                    .onClick(async () => {
+                        const namedWindow = this.windows.get(record.id);
+                        if (namedWindow !== undefined) {
+                            namedWindow.loadFile(target);
+                        }
+                    });
+            });
+        }
+    }
+
     async onload() {
         await this.loadSettings();
         if ("DEFAULT" in this.settings.windows) {
@@ -380,34 +415,39 @@ export default class ImageWindow extends Plugin {
         }
         this.addSettingTab(new ImageWindowSettingTab(this, this));
 
+        // Track right clicks for editor context menu
+        let rightClickTarget: EventTarget = null;
+        let rightClickOnSameTarget = false;
+
+        this.registerDomEvent(document, "mousedown", (event: MouseEvent) => {
+            // Check if it's the right button being pushed down
+            if (event.button !== 2) return;
+            rightClickTarget = event.target;
+        });
+
+        this.registerDomEvent(document, "mouseup", (event: MouseEvent) => {
+            // Check if it's the right button being lifted
+            if (event.button !== 2 || event.target != rightClickTarget) return;
+            rightClickOnSameTarget = true;
+        });
+
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu, file) => {
+
                 if (!(this.app.vault.adapter instanceof FileSystemAdapter))
                     return;
                 if (!(file instanceof TFile)) return;
 
-                menu.addItem((item) => {
-                    item.setTitle("Open in second window")
-                        .setIcon("open-elsewhere-glyph")
-                        .onClick(async () => {
-                            this.defaultWindow.loadFile(file);
-                        });
-                });
-                for (const [name, record] of Object.entries(
-                    this.settings.windows
-                )) {
-                    if (name === DEFAULT_WINDOW_NAME) continue;
-                    menu.addItem((item) => {
-                        item.setTitle(`Open in second window '${name}'`)
-                            .setIcon("open-elsewhere-glyph")
-                            .onClick(async () => {
-                                const namedWindow = this.windows.get(record.id);
-                                if (namedWindow !== undefined) {
-                                    namedWindow.loadFile(file);
-                                }
-                            });
-                    });
-                }
+                this.addMenuItems(menu, file);
+            })
+        );
+
+        this.registerEvent(
+            this.app.workspace.on("editor-menu", (menu, file, info) => {
+                if (!(this.app.vault.adapter instanceof FileSystemAdapter))
+                    return;
+                if (rightClickOnSameTarget && rightClickTarget instanceof HTMLImageElement)
+                    this.addMenuItems(menu, rightClickTarget);
             })
         );
 
@@ -415,34 +455,8 @@ export default class ImageWindow extends Plugin {
             const target = event.target as HTMLElement;
             if (target.localName !== "img") return;
 
-            const imgPath = (target as HTMLImageElement).currentSrc;
-            const file = this.app.vault.resolveFileUrl(imgPath);
-
-            if (!(file instanceof TFile)) return;
             const menu = new Menu();
-            menu.addItem((item) => {
-                item.setTitle("Open in new window")
-                    .setIcon("open-elsewhere-glyph")
-                    .onClick(async () => {
-                        this.defaultWindow.loadFile(file);
-                    });
-            });
-
-            for (const [name, record] of Object.entries(
-                this.settings.windows
-            )) {
-                if (name === DEFAULT_WINDOW_NAME) continue;
-                menu.addItem((item) => {
-                    item.setTitle(`Open in window '${name}'`)
-                        .setIcon("open-elsewhere-glyph")
-                        .onClick(async () => {
-                            const namedWindow = this.windows.get(record.id);
-                            if (namedWindow !== undefined) {
-                                namedWindow.loadFile(file);
-                            }
-                        });
-                });
-            }
+            this.addMenuItems(menu, target as HTMLImageElement);
 
             menu.showAtPosition({ x: event.pageX, y: event.pageY });
         });
