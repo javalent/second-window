@@ -36,7 +36,7 @@
         "obsidian": "^1.4.11",
         "random-word-slugs": "^0.1.6",
         "standard-version": "^9.3.2",
-        "svelte-preprocess": "^4.9.8",
+        "svelte-preprocess": "^6.0.2",
         "ts-loader": "^9.2.3",
         "tslib": "^2.3.1",
         "typescript": "^4.2.4",
